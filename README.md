@@ -1,5 +1,3 @@
-# changePointDetection
-
 # Change Point Tool
 
 A Python package for change-point detection.
