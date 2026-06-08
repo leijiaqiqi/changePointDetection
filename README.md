@@ -7,6 +7,6 @@ A Python package for change-point detection.
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/change-point-detection.git
+git clone https://github.com/leijiaqiqi/change-point-detection.git
 cd change-point-detection
 python -m pip install -e .
