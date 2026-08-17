@@ -1,6 +1,8 @@
 import gurobipy as gp
 from gurobipy import GRB
 import numpy as np
+import ruptures as rpt
+from ruptures.base import BaseCost
 
 
 # ============================================================
@@ -191,10 +193,7 @@ def segment_cost_variance(
 # PELT initialization
 # ============================================================
 
-def pelt_initialization(
-        X, Delta, pen,
-        R=None,
-        model="l2"):
+def pelt_initialization(  X, Delta, pen,  R=None,  model="l2"):
 
     try:
         import ruptures as rpt
