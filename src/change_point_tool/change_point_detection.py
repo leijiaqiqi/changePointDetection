@@ -36,75 +36,33 @@ def change_point_detection_fixed_num(
     model = gp.Model("Segmented_CDF_Diff")
 
     # Variables
-    z = model.addVars(
-        n, L,
-        vtype=GRB.BINARY,
-        name="z"
-    )
+    z = model.addVars(n, L,vtype=GRB.BINARY, name="z")
 
-    s = model.addVars(
-        n, L,
-        vtype=GRB.CONTINUOUS,
-        name="s"
-    )
+    s = model.addVars( n, L,vtype=GRB.CONTINUOUS,name="s")
 
-    cdf_l = model.addVars(
-        n, L,
-        lb=0,
-        ub=1,
-        vtype=GRB.CONTINUOUS,
-        name="cdf_l"
-    )
+    cdf_l = model.addVars( n, L, lb=0, ub=1, vtype=GRB.CONTINUOUS,  name="cdf_l" )
 
-    t = model.addVars(
-        n, L,
-        vtype=GRB.CONTINUOUS,
-        name="t"
-    )
+    t = model.addVars(n, L, vtype=GRB.CONTINUOUS, name="t")
 
-    k = model.addVars(
-        L,
-        lb=0,
-        ub=1 / delta,
-        vtype=GRB.CONTINUOUS,
-        name="k"
-    )
+    k = model.addVars( L, lb=0,  ub=1 / delta,  vtype=GRB.CONTINUOUS,   name="k" )
 
-    b = model.addVars(
-        n, L, n,
-        lb=0,
-        ub=1,
-        vtype=GRB.CONTINUOUS,
-        name="b"
-    )
+    b = model.addVars( n, L, n, lb=0,  ub=1,vtype=GRB.CONTINUOUS,name="b")
 
-    diff = model.addVars(
-        n, L,
-        lb=0,
-        ub=1,
-        vtype=GRB.CONTINUOUS,
-        name="diff"
-    )
+    diff = model.addVars(n, L,lb=0, ub=1, vtype=GRB.CONTINUOUS, name="diff")
 
     # --------------------------------------------------------
     # Each observation must be assigned to exactly one segment
     # --------------------------------------------------------
 
     for i in range(n):
-        model.addConstr(
-            sum(z[i, l] for l in range(L)) == 1,
-            name=f"segment_{i}"
-        )
+        model.addConstr( sum(z[i, l] for l in range(L)) == 1,name=f"segment_{i}" )
 
     # --------------------------------------------------------
     # Minimum segment length
     # --------------------------------------------------------
 
     for l in range(L):
-        model.addConstr(
-            sum(z[i, l] for i in range(n)) >= delta,
-            name=f"segment_l_{l}"
-        )
+        model.addConstr( sum(z[i, l] for i in range(n)) >= delta,  name=f"segment_l_{l}" )
 
     # --------------------------------------------------------
     # Monotonic segment assignment
@@ -112,14 +70,7 @@ def change_point_detection_fixed_num(
 
     for i in range(n - 1):
         for l in range(L):
-            model.addConstr(
-                z[i, l]
-                <= sum(
-                    z[i + 1, lp]
-                    for lp in range(l, L)
-                ),
-                name=f"monotone_{i}_{l}"
-            )
+            model.addConstr( z[i, l]   <= sum(    z[i + 1, lp]   for lp in range(l, L) ),   name=f"monotone_{i}_{l}" )
 
     # NOTE:
     # The following constraints from your original code
@@ -136,61 +87,20 @@ def change_point_detection_fixed_num(
     # Indicators
     # --------------------------------------------------------
 
-    indicators = [
-        [
-            int(X[i] <= u)
-            for i in range(n)
-        ]
-        for u in u_vals
-    ]
+    indicators = [[   int(X[i] <= u)   for i in range(n)] for u in u_vals ]
 
     # --------------------------------------------------------
     # CDF constraints
     # --------------------------------------------------------
 
     for l in range(L):
-
-        model.addConstr(
-            gp.quicksum(
-                t[i, l]
-                for i in range(n)
-            ) == 1
-        )
-
+        model.addConstr(  gp.quicksum(   t[i, l] for i in range(n) ) == 1  )
         for u in range(n):
-
-            model.addConstr(
-                cdf_l[u, l]
-                ==
-                sum(
-                    indicators[u][i] * t[i, l]
-                    for i in range(n)
-                )
-            )
-
-            model.addConstr(
-                t[u, l] <= z[u, l]
-            )
-
-            model.addConstr(
-                t[u, l]
-                <=
-                k[l]
-                + 1 / n * z[u, l]
-                - 1 / n
-            )
-
-            model.addConstr(
-                t[u, l]
-                >=
-                1 / n * z[u, l]
-            )
-
-            model.addConstr(
-                t[u, l]
-                >=
-                k[l] + z[u, l] - 1
-            )
+            model.addConstr(  cdf_l[u, l] == sum( indicators[u][i] * t[i, l]for i in range(n) ))
+            model.addConstr( t[u, l] <= z[u, l])
+            model.addConstr(  t[u, l] <=  k[l] + 1 / n * z[u, l]  - 1 / n)
+            model.addConstr(  t[u, l]  >=  1 / n * z[u, l] )
+            model.addConstr(  t[u, l]   >=  k[l] + z[u, l] - 1 )
 
     # --------------------------------------------------------
     # Linearization
@@ -199,24 +109,9 @@ def change_point_detection_fixed_num(
     for l in range(L):
         for u in range(n):
             for i in range(n):
-
-                model.addConstr(
-                    b[i, l, u]
-                    <= diff[u, l]
-                )
-
-                model.addConstr(
-                    b[i, l, u]
-                    <= z[i, l]
-                )
-
-                model.addConstr(
-                    b[i, l, u]
-                    >=
-                    z[i, l]
-                    + diff[u, l]
-                    - 1
-                )
+                model.addConstr(    b[i, l, u] <= diff[u, l] )
+                model.addConstr(   b[i, l, u] <= z[i, l])
+                model.addConstr( b[i, l, u]  >= z[i, l]  + diff[u, l]  - 1  )
 
     # --------------------------------------------------------
     # s and diff
@@ -224,40 +119,17 @@ def change_point_detection_fixed_num(
 
     for l in range(L):
         for u in range(n):
-
-            model.addConstr(
-                diff[u, l]
-                + cdf_l[u, l]
-                == 1
-            )
-
-            model.addConstr(
-                s[u, l]
-                ==
-                sum(
-                    indicators[u][i]
-                    * b[i, l, u]
-                    for i in range(n)
-                )
-            )
+            model.addConstr( diff[u, l] + cdf_l[u, l]  == 1   )
+            model.addConstr( s[u, l] ==sum(indicators[u][i] * b[i, l, u] for i in range(n)))
 
     # --------------------------------------------------------
     # Objective
     # --------------------------------------------------------
 
-    objective = sum(
-        s[u, l]
-        for u in range(n)
-        for l in range(L)
-    )
+    objective = sum(s[u, l]for u in range(n)for l in range(L))
 
-    model.setObjective(
-        objective,
-        GRB.MINIMIZE
-    )
-
+    model.setObjective( objective,GRB.MINIMIZE )
     model.Params.OutputFlag = output_flag
-
     model.optimize()
 
     # --------------------------------------------------------
@@ -276,9 +148,7 @@ def change_point_detection_fixed_num(
         for l in range(L):
             z_sol[i, l] = z[i, l].X
 
-    col_sums = np.rint(
-        np.sum(z_sol, axis=0)
-    ).astype(int)
+    col_sums = np.rint(np.sum(z_sol, axis=0)).astype(int)
 
     Z_1 = np.cumsum(col_sums)
 
@@ -307,14 +177,11 @@ def change_point_detection_fixed_num(
 
 def segment_cost_variance(
         X, tau_left, tau_right):
-
     segment = np.asarray(X)[
         tau_left:tau_right
     ]
-
     if len(segment) == 0:
         return 0.0
-
     return float(
         np.var(segment)
     )
@@ -349,12 +216,7 @@ def pelt_initialization(
     # --------------------------------------------------------
 
     if R is None:
-
-        algo = rpt.Pelt(
-            model=model,
-            min_size=Delta,
-            jump=1
-        ).fit(X)
+        algo = rpt.Pelt(  model=model,    min_size=Delta,  jump=1).fit(X)
 
     # --------------------------------------------------------
     # Option 2:
@@ -364,46 +226,24 @@ def pelt_initialization(
     else:
 
         class RCost(BaseCost):
-
             model = "custom_R"
             min_size = 1
 
-            def __init__(
-                    self, R, Delta):
-
+            def __init__( self, R, Delta):
                 self.R = R
                 self.min_size = Delta
 
-            def fit(
-                    self, signal):
-
+            def fit(self, signal):
                 self.signal = np.asarray(signal)
-
                 return self
 
-            def error(
-                    self, start, end):
+            def error(self, start, end):
 
-                return float(
-                    self.R(
-                        self.signal,
-                        start,
-                        end
-                    )
-                )
+                return float(self.R(self.signal, start, end))
 
-        algo = rpt.Pelt(
-            custom_cost=RCost(
-                R,
-                Delta
-            ),
-            min_size=Delta,
-            jump=1
-        ).fit(X)
+        algo = rpt.Pelt(custom_cost=RCost(R,Delta),min_size=Delta, jump=1).fit(X)
 
-    breakpoints = algo.predict(
-        pen=pen
-    )
+    breakpoints = algo.predict(pen=pen)
 
     # ruptures includes n as the final breakpoint.
     #
@@ -417,11 +257,7 @@ def pelt_initialization(
     #
     # because 500 = n is the endpoint.
 
-    Gamma_0 = [
-        int(tau)
-        for tau in breakpoints
-        if tau < len(X)
-    ]
+    Gamma_0 = [int(tau)for tau in breakpoints  if tau < len(X) ]
 
     return Gamma_0
 
@@ -438,10 +274,7 @@ def local_change_point_refinement(
         Delta,
         output_flag=0):
 
-    Gamma = sorted([
-        int(tau)
-        for tau in Gamma
-    ])
+    Gamma = sorted([int(tau) for tau in Gamma ])
 
     tau_left = int(tau_left)
     tau_right = int(tau_right)
@@ -450,11 +283,7 @@ def local_change_point_refinement(
     # Number m of existing change points inside the interval
     # --------------------------------------------------------
 
-    interior_points = [
-        tau
-        for tau in Gamma
-        if tau_left < tau < tau_right
-    ]
+    interior_points = [tau for tau in Gamma  if tau_left < tau < tau_right]
 
     m = len(interior_points)
 
@@ -465,9 +294,7 @@ def local_change_point_refinement(
     # Local data
     # --------------------------------------------------------
 
-    X_local = np.asarray(X)[
-        tau_left:tau_right
-    ]
+    X_local = np.asarray(X)[  tau_left:tau_right]
 
     # IMPORTANT:
     #
@@ -492,45 +319,26 @@ def local_change_point_refinement(
     # Solve the local MILP
     # --------------------------------------------------------
 
-    Z_local = (
-        change_point_detection_fixed_num(
-            Length=Length,
-            X=X_local,
-            Delta=Delta,
-            output_flag=output_flag
-        )
-    )
+    Z_local = (  change_point_detection_fixed_num(  Length=Length,  X=X_local,   Delta=Delta,   output_flag=output_flag))
 
     # Z_local includes the final endpoint.
     #
     # Therefore Z_local[:-1] gives the m
     # interior change points.
 
-    refined_points = [
-        tau_left + int(tau)
-        for tau in Z_local[:-1]
-    ]
+    refined_points = [tau_left + int(tau) for tau in Z_local[:-1]]
 
     # --------------------------------------------------------
     # Keep points outside the refinement interval
     # --------------------------------------------------------
 
-    Gamma_outside = [
-        tau
-        for tau in Gamma
-        if not (
-            tau_left < tau < tau_right
-        )
-    ]
+    Gamma_outside = [tau for tau in Gamma  if not (     tau_left < tau < tau_right )]
 
     # --------------------------------------------------------
     # Replace old local points by refined local points
     # --------------------------------------------------------
 
-    Gamma = sorted(
-        Gamma_outside
-        + refined_points
-    )
+    Gamma = sorted(Gamma_outside+ refined_points)
 
     return Gamma
 
@@ -539,30 +347,17 @@ def local_change_point_refinement(
 # Total loss for current Gamma
 # ============================================================
 
-def total_segment_cost(
-        Gamma, X, R):
+def total_segment_cost(Gamma, X, R):
 
-    Gamma = sorted([
-        int(tau)
-        for tau in Gamma
-    ])
+    Gamma = sorted([int(tau)for tau in Gamma])
 
-    boundaries = (
-        [0]
-        + Gamma
-        + [len(X)]
-    )
+    boundaries = ( [0] + Gamma + [len(X)])
 
     total = 0.0
 
-    for i in range(
-            len(boundaries) - 1):
+    for i in range(  len(boundaries) - 1):
 
-        total += R(
-            X,
-            boundaries[i],
-            boundaries[i + 1]
-        )
+        total += R( X,  boundaries[i],    boundaries[i + 1])
 
     return float(total)
 
@@ -571,32 +366,18 @@ def total_segment_cost(
 # Compute delta_merge(Gamma)
 # ============================================================
 
-def compute_delta_merge(
-        Gamma, X, R):
+def compute_delta_merge(Gamma, X, R):
 
-    Gamma = sorted([
-        int(tau)
-        for tau in Gamma
-    ])
+    Gamma = sorted([  int(tau)   for tau in Gamma])
 
     L = len(Gamma)
 
     if L == 0:
         return np.inf, None
 
-    boundaries = (
-        [0]
-        + Gamma
-        + [len(X)]
-    )
+    boundaries = ( [0]  + Gamma  + [len(X)] )
 
-    denominator = (
-        total_segment_cost(
-            Gamma,
-            X,
-            R
-        )
-    )
+    denominator = (  total_segment_cost( Gamma,   X,   R) )
 
     if abs(denominator) <= 1e-12:
         return np.inf, None
@@ -612,84 +393,39 @@ def compute_delta_merge(
 
         # Cost before removing tau_{i+1}
 
-        old_cost = (
-            R(
-                X,
-                boundaries[i],
-                boundaries[i + 1]
-            )
-            +
-            R(
-                X,
-                boundaries[i + 1],
-                boundaries[i + 2]
-            )
-        )
+        old_cost = ( R(X,boundaries[i], boundaries[i + 1]) +R(X, boundaries[i + 1],boundaries[i + 2]))
 
         # Cost after removing tau_{i+1}
 
-        merged_cost = R(
-            X,
-            boundaries[i],
-            boundaries[i + 2]
-        )
+        merged_cost = R(X,boundaries[i],boundaries[i + 2])
 
-        delta_i = (
-            merged_cost
-            - old_cost
-        ) / denominator
+        delta_i = ( merged_cost- old_cost) / denominator
 
         # Most negative delta = largest reduction
         # from performing a merge.
 
         if delta_i < delta_merge:
-
             delta_merge = delta_i
             i_star = i
 
-    return (
-        float(delta_merge),
-        i_star
-    )
+    return (float(delta_merge),i_star )
 
 
 # ============================================================
 # Compute delta_split(Gamma)
 # ============================================================
 
-def compute_delta_split(
-        Gamma,
-        X,
-        Delta,
-        R,
-        output_flag=0):
+def compute_delta_split(  Gamma,  X,  Delta,  R,  output_flag=0):
 
-    Gamma = sorted([
-        int(tau)
-        for tau in Gamma
-    ])
+    Gamma = sorted([  int(tau) for tau in Gamma ])
 
-    boundaries = (
-        [0]
-        + Gamma
-        + [len(X)]
-    )
+    boundaries = (  [0]  + Gamma  + [len(X)] )
 
-    denominator = (
-        total_segment_cost(
-            Gamma,
-            X,
-            R
-        )
-    )
+    denominator = (total_segment_cost(Gamma,X,R))
 
-    if abs(denominator) <= 1e-12:
+    if abs(denominator) <= 1e-4:
 
-        return (
-            -np.inf,
-            None,
-            None
-        )
+        return ( -np.inf, None, None)
 
     delta_split = -np.inf
 
@@ -700,8 +436,7 @@ def compute_delta_split(
     # Test every current segment
     # --------------------------------------------------------
 
-    for i in range(
-            len(boundaries) - 1):
+    for i in range(  len(boundaries) - 1):
 
         tau_left = boundaries[i]
         tau_right = boundaries[i + 1]
@@ -709,15 +444,10 @@ def compute_delta_split(
         # We need two segments, each having
         # at least Delta observations.
 
-        if (
-            tau_right - tau_left
-            < 2 * Delta
-        ):
+        if (  tau_right - tau_left  < 2 * Delta):
             continue
 
-        X_local = np.asarray(X)[
-            tau_left:tau_right
-        ]
+        X_local = np.asarray(X)[ tau_left:tau_right]
 
         # ----------------------------------------------------
         # Solve the MILP with exactly ONE change point.
@@ -726,55 +456,26 @@ def compute_delta_split(
         # so Length = 2 in your Python MILP.
         # ----------------------------------------------------
 
-        Z_local = (
-            change_point_detection_fixed_num(
-                Length=2,
-                X=X_local,
-                Delta=Delta,
-                output_flag=output_flag
-            )
-        )
+        Z_local = ( change_point_detection_fixed_num(Length=2,X=X_local,Delta=Delta,output_flag=output_flag))
 
         # First cumulative segment length
         # gives the candidate split point.
 
-        candidate_tau = (
-            tau_left
-            + int(Z_local[0])
-        )
+        candidate_tau = ( tau_left + int(Z_local[0]) )
 
         # ----------------------------------------------------
         # Loss before splitting
         # ----------------------------------------------------
 
-        old_cost = R(
-            X,
-            tau_left,
-            tau_right
-        )
+        old_cost = R( X, tau_left, tau_right )
 
         # ----------------------------------------------------
         # Loss after splitting
         # ----------------------------------------------------
 
-        new_cost = (
-            R(
-                X,
-                tau_left,
-                candidate_tau
-            )
-            +
-            R(
-                X,
-                candidate_tau,
-                tau_right
-            )
-        )
+        new_cost = ( R(X,tau_left,candidate_tau ) + R(X,candidate_tau,tau_right))
 
-        delta_i = (
-            old_cost
-            - new_cost
-        ) / denominator
+        delta_i = (old_cost- new_cost ) / denominator
 
         # Largest delta = largest reduction
         # from adding a change point.
@@ -785,11 +486,7 @@ def compute_delta_split(
             i_star = i
             tau_star = candidate_tau
 
-    return (
-        float(delta_split),
-        i_star,
-        tau_star
-    )
+    return (  float(delta_split),i_star,  tau_star)
 
 
 # ============================================================
@@ -797,69 +494,36 @@ def compute_delta_split(
 # Optimization-Integrated Ratio-Test Refinement
 # ============================================================
 
-def optimization_integrated_ratio_test_refinement(
-        X,
-        Gamma_0,
-        Delta,
-        eta,
-        w,
-        R=segment_cost_variance,
-        output_flag=0):
+def optimization_integrated_ratio_test_refinement( X, Gamma_0, Delta, eta, w, R=segment_cost_variance, output_flag=0):
 
     X = np.asarray(X)
-
     n = len(X)
 
     # --------------------------------------------------------
     # Initial Gamma
     # --------------------------------------------------------
 
-    Gamma = sorted([
-        int(tau)
-        for tau in Gamma_0
-        if 0 < int(tau) < n
-    ])
+    Gamma = sorted([int(tau) for tau in Gamma_0 if 0 < int(tau) < n])
 
     if w < 1:
-
-        raise ValueError(
-            "w must be at least 1."
-        )
+        raise ValueError( "w must be at least 1." )
 
     if eta < 0:
-
-        raise ValueError(
-            "eta must be nonnegative."
-        )
+        raise ValueError( "eta must be nonnegative.")
 
     # ========================================================
     # Step 1:
     # Compute delta_merge(Gamma) and i*
     # ========================================================
 
-    delta_merge, i_star = (
-        compute_delta_merge(
-            Gamma=Gamma,
-            X=X,
-            R=R
-        )
-    )
+    delta_merge, i_star = (compute_delta_merge(Gamma=Gamma,X=X,R=R))
 
     # ========================================================
     # MERGE PHASE
     # ========================================================
 
-    if (
-        len(Gamma) > 1
-        and i_star is not None
-        and delta_merge < -eta
-    ):
-
-        while (
-            len(Gamma) > 1
-            and i_star is not None
-            and delta_merge < -eta
-        ):
+    if (len(Gamma) > 1 and i_star is not None and delta_merge < -eta ):
+        while (len(Gamma) > 1 and i_star is not None and delta_merge < -eta ):
 
             # ------------------------------------------------
             # Remove tau_{i*+1}
@@ -874,11 +538,7 @@ def optimization_integrated_ratio_test_refinement(
             # Reindex Gamma
             # ------------------------------------------------
 
-            boundaries = (
-                [0]
-                + Gamma
-                + [n]
-            )
+            boundaries = ([0] + Gamma   + [n])
 
             # ------------------------------------------------
             # Construct local refinement window
@@ -890,23 +550,13 @@ def optimization_integrated_ratio_test_refinement(
             # tau_{min(L+1, i*+w+1)}
             # ------------------------------------------------
 
-            left_index = max(
-                0,
-                i_star - w
-            )
+            left_index = max(0,i_star - w )
 
-            right_index = min(
-                len(boundaries) - 1,
-                i_star + w + 1
-            )
+            right_index = min(  len(boundaries) - 1, i_star + w + 1 )
 
-            tau_left = (
-                boundaries[left_index]
-            )
+            tau_left = (  boundaries[left_index])
 
-            tau_right = (
-                boundaries[right_index]
-            )
+            tau_right = (  boundaries[right_index])
 
             # ------------------------------------------------
             # Local refinement
@@ -915,28 +565,13 @@ def optimization_integrated_ratio_test_refinement(
             # number of Gamma points inside the interval.
             # ------------------------------------------------
 
-            Gamma = (
-                local_change_point_refinement(
-                    Gamma=Gamma,
-                    X=X,
-                    tau_left=tau_left,
-                    tau_right=tau_right,
-                    Delta=Delta,
-                    output_flag=output_flag
-                )
-            )
+            Gamma = (local_change_point_refinement( Gamma=Gamma, X=X, tau_left=tau_left, tau_right=tau_right, Delta=Delta, output_flag=output_flag))
 
             # ------------------------------------------------
             # Recompute merge ratio
             # ------------------------------------------------
 
-            delta_merge, i_star = (
-                compute_delta_merge(
-                    Gamma=Gamma,
-                    X=X,
-                    R=R
-                )
-            )
+            delta_merge, i_star = (compute_delta_merge(Gamma=Gamma,X=X,R=R))
 
     # ========================================================
     # SPLIT PHASE
@@ -948,47 +583,21 @@ def optimization_integrated_ratio_test_refinement(
         # Find the best segment and candidate split
         # ----------------------------------------------------
 
-        (
-            delta_split,
-            i_star,
-            tau_star
-        ) = compute_delta_split(
-            Gamma=Gamma,
-            X=X,
-            Delta=Delta,
-            R=R,
-            output_flag=output_flag
-        )
+        (delta_split,i_star,tau_star) = compute_delta_split(Gamma=Gamma, X=X,Delta=Delta,  R=R,  output_flag=output_flag)
 
         # ----------------------------------------------------
         # Continue splitting while improvement > eta
         # ----------------------------------------------------
 
-        while (
-            tau_star is not None
-            and delta_split > eta
-        ):
-
+        while (tau_star is not None and delta_split > eta):
             # Add tau*
-            Gamma.append(
-                int(tau_star)
-            )
+            Gamma.append(  int(tau_star))
 
             # Reindex
             Gamma = sorted(Gamma)
 
             # Recompute best split
-            (
-                delta_split,
-                i_star,
-                tau_star
-            ) = compute_delta_split(
-                Gamma=Gamma,
-                X=X,
-                Delta=Delta,
-                R=R,
-                output_flag=output_flag
-            )
+            ( delta_split, i_star, tau_star) = compute_delta_split(Gamma=Gamma,X=X,Delta=Delta,R=R,output_flag=output_flag)
 
     return Gamma
 
@@ -1003,55 +612,22 @@ def optimization_integrated_ratio_test_refinement(
 # Optimization-Integrated Ratio-Test Refinement
 # ============================================================
 
-def pelt_milp_ratio_refinement(
-        X,
-        Delta,
-        eta,
-        w,
-        pelt_pen,
-        R=segment_cost_variance,
-        pelt_model="l2",
-        use_same_R_in_pelt=False,
-        output_flag=0):
+def pelt_milp_ratio_refinement( X,  Delta,  eta,  w,pelt_pen,R=segment_cost_variance,pelt_model="l2",use_same_R_in_pelt=False,output_flag=0):
 
     # --------------------------------------------------------
     # Step 1: PELT
     # --------------------------------------------------------
 
     if use_same_R_in_pelt:
-
-        Gamma_0 = pelt_initialization(
-            X=X,
-            Delta=Delta,
-            pen=pelt_pen,
-            R=R
-        )
-
+        Gamma_0 = pelt_initialization( X=X,  Delta=Delta,  pen=pelt_pen,  R=R  )
     else:
-
-        Gamma_0 = pelt_initialization(
-            X=X,
-            Delta=Delta,
-            pen=pelt_pen,
-            R=None,
-            model=pelt_model
-        )
+        Gamma_0 = pelt_initialization(X=X,Delta=Delta,pen=pelt_pen,R=None,model=pelt_model )
 
     # --------------------------------------------------------
     # Step 2: MILP + ratio-test refinement
     # --------------------------------------------------------
 
-    Gamma = (
-        optimization_integrated_ratio_test_refinement(
-            X=X,
-            Gamma_0=Gamma_0,
-            Delta=Delta,
-            eta=eta,
-            w=w,
-            R=R,
-            output_flag=output_flag
-        )
-    )
+    Gamma = (optimization_integrated_ratio_test_refinement(X=X, Gamma_0=Gamma_0, Delta=Delta, eta=eta, w=w, R=R, output_flag=output_flag ))
 
     return Gamma_0, Gamma
 
